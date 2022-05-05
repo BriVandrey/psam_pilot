@@ -1,0 +1,78 @@
+# function to plot and analyse PSAM pilot data
+# reads in dataframe containing subthreshold, spike data, and PSP measurements (where relevant) for EC L1 & L2 neurons in PSAM+ and control animals
+# columns are included specifying whether neuron, slice, or animal had expression of PSAM-GFP
+# if a neuron stopped firing after application of uPSEM-792, this is recorded as 'no_spikes'
+
+# import modules
+library(tidyverse)
+library(rstatix)
+library(gridExtra)
+library(ggpubr)
+
+# read file
+path <- "~/Desktop/psam_pilot/in_plots"
+df <- read.csv(file="~/Desktop/psam_pilot/psam_df.csv", head=TRUE, sep=",")
+
+#add absolute values for ipsp 
+df$ipsp_abs <- abs(df$ipsp)
+df$ipsp_max_abs <- abs(df$ipsp_max)
+
+#subset based on patterns PSAM expression
+psam_df <- subset(df, psam_expression_cell=="Y") # PSAM+ neurons 
+control_df <- subset(df, psam_expression_cell=="N") # PSAM- neurons
+control_pc_df <- subset(control_df, cell_type != "l2_in"); psam_pc_df <- subset(psam_pc_df, cell_type != "l1_in") # data from slices with PSAM-GFP expression
+control_in_df <- subset(control_df, cell_type != "l2_pc"); psam_in_df <- subset(psam_in_df, cell_type != "l2_sc")
+pure_control_df <- subset(control_df, psam_expression_slice =="N") # control data from slices with no PSAM-GFP expression
+
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+# ----------------------------------------------------------- Plot comparative data ----------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# plotting functions - adapted from lineplot code originally written by Sau Tsoi, 2021
+
+#function for producing lineplot with individual observations for x 3 conditions
+lp_3_conds <- function(df, cond1, cond2, xlabel1, xlabel2, ylabel){
+  
+  df <- subset(df, condition==10) # extract 3 cond mice
+
+  #convert condition into a factor with the levels in the correct order
+  df$drug <- as.character(df$drug)
+  df$drug <- factor(df$drug, levels=unique(df$drug))
+  
+  #summarise data 
+  sum <-group_by(df, drug, id) %>% 
+    summarise(mean = mean(vm)) #** specify here
+  sum_mean<-group_by(sum, drug) %>% 
+    get_summary_stats(type = "mean_se")
+  
+  #lineplot 
+  lp <- ggplot(sum_mean, aes(x=drug, y=mean))+
+    theme_classic()+
+    geom_line(data = sum, inherit.aes = FALSE, aes(x = drug, y = mean, group = id), size =0.6, colour="grey74")+ #individual traces
+    geom_point(data = sum, inherit.aes = FALSE, aes(x = drug, y = mean, group = id), size = 2, shape=111, colour="grey74") + #individual points
+    geom_point(size = 1) + #mean points
+    geom_line(aes(group=1), size = 0.6) + #mean trace
+    geom_errorbar(aes(ymax = mean+se, ymin = mean-se), width = 0.2, size = 0.6) + #error bars 
+    scale_x_discrete(labels=c("Baseline", xlabel1, xlabel2)) +
+    xlab("") + ylab(ylabel)
+  
+  lp + theme(axis.text.x = element_text(size = 8, angle=-50, color='black'), 
+                  axis.text.y = element_text(size = 8, color='black'),
+                  axis.title.y = element_text(size=12, margin= margin(t=0,r=5,b=0,l=0))) 
+  
+  ggsave(path=path, file=paste("vm","non-expressing", "10nM_rmp.eps", sep="_"), width =50, height =60, units="mm") #save plot. **specify here
+}
+
+#lp_3_conds(psam_pc_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "RMP (mV)")
+#lp_3_conds(psam_pc_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "IR-")
+#lp_3_conds(psam_pc_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "IR+")
+#lp_3_conds(psam_pc_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "Sag")
+#lp_3_conds(psam_pc_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "Rheobase")
+#lp_3_conds(psam_pc_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "AP Thresh (mV)")
+lp_3_conds(psam_in_df, "psem10", "washout", "uPSEM-792 (10 nM)", "Washout", "RMP (mV)")
+
+
+#function for producing lineplot with individual observations for x 4 conditions
+
+
+#function for producing lineplot with individual observations for x 5 conditions
